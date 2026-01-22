@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 	"encoding/json"
 	"net/http"
+	"sort"
 )
 
 type requestBody struct {
@@ -85,6 +86,8 @@ func (cfg *apiConfig) jsonHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, req *http.Request) {
+	s := req.URL.Query().Get("author_id")
+	sort_method := req.URL.Query().Get("sort")
 	chirps, err := cfg.db.GetChirps(req.Context())
 	if err != nil {
 		log.Printf("Error getting chirps: %s", err)
@@ -100,7 +103,16 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, req *http.Request) {
 			chirp.Body,
 			chirp.UserID,
 		}
-		res = append(res, new_chirp)
+		if s == "" || s == chirp.UserID.String() {
+			res = append(res, new_chirp)
+		}
+	}
+	if sort_method == "desc" {
+		sort.Slice(res, func(i, j int) bool {
+			i_time := res[i].CreatedAt
+			j_time := res[j].CreatedAt
+			return i_time.After(j_time)
+		})
 	}
 	data, err := json.Marshal(res)
 	if err != nil {
